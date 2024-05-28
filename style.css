@@ -4,7 +4,7 @@ body {
     align-items: center;
     height: 100vh;
     margin: 0;
-    background-color: #f0f0f0;
+    background-color: #95388b;
 }
 
 #board {
@@ -25,11 +25,11 @@ body {
 }
 
 .light {
-    background-color: #eeeed2;
+    background-color: #ffffff;
 }
 
 .dark {
-    background-color: #769656;
+    background-color: #00000044;
 }
 
 .piece {
