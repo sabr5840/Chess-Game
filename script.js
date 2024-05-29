@@ -154,8 +154,18 @@ function handleDrop(event) {
             movePiece(startRow, startCol, endRow, endCol);
             updateBoardView(window.boardState);
             togglePlayer();
+        } else {
+            // Revert the piece to its original position
+            const startSquareElement = document.getElementById(startSquare);
+            startSquareElement.appendChild(draggedPiece);
+            draggedPiece.style.display = 'block'; // Ensure the piece is visible again
+            showInvalidMoveMessage();
         }
     }
+}
+
+function showInvalidMoveMessage() {
+    alert("Invalid move! Please try again.");
 }
 
 function movePiece(startRow, startCol, endRow, endCol) {

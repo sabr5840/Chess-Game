@@ -70,7 +70,9 @@ body {
     display: none;
     left: 50%;
     transform: translateX(-50%);
-    margin-top: 130px; /* Adjust this value to move closer to the board */
+    margin-top: 130px; 
+    margin-left: 9px;
+
 
 }
 
@@ -82,5 +84,6 @@ body {
     left: 50%;
     transform: translateX(-50%);
     margin-bottom: 130px; 
+    margin-left: 9px;
 
 }
