@@ -3,7 +3,13 @@ document.addEventListener("DOMContentLoaded", function() {
     const board = createBoard();
     boardElement.append(...board);
 
-    // 2D array to represent the board
+    document.getElementById('play-again-button').addEventListener('click', resetGame);
+    document.getElementById('close-check-message').addEventListener('click', closeCheckMessage);
+
+    initializeGame();
+});
+
+function initializeGame() {
     window.boardState = [
         ['♜', '♞', '♝', '♛', '♚', '♝', '♞', '♜'],
         ['♟', '♟', '♟', '♟', '♟', '♟', '♟', '♟'],
@@ -15,30 +21,29 @@ document.addEventListener("DOMContentLoaded", function() {
         ['♖', '♘', '♗', '♕', '♔', '♗', '♘', '♖']
     ];
 
-    // Store king positions
     window.kingPositions = {
         white: [7, 4],
         black: [0, 4]
     };
 
-    // En passant target
     window.enPassantTarget = null;
 
-    // Castling rights
     window.castlingRights = {
         white: { kingSide: true, queenSide: true },
         black: { kingSide: true, queenSide: true }
     };
 
-    // Current player state
     window.currentPlayer = 'white';
-
-    // Display current player
     displayCurrentPlayer();
-
-    // Initialize the board with pieces based on boardState
     initializeBoard(window.boardState);
-});
+}
+
+function resetGame() {
+    const endgamePopup = document.getElementById('endgame-popup');
+    endgamePopup.style.display = 'none';
+    initializeGame();
+    updateBoardView(window.boardState);
+}
 
 function createBoard() {
     const board = [];
@@ -475,17 +480,49 @@ function checkForCheckmateOrStalemate(currentPlayer) {
     console.log(`King position for ${currentPlayer}:`, kingPosition);
     const inCheck = isKingInCheck(window.boardState, kingPosition, currentPlayer);
     const legalMoves = getAllLegalMoves(window.boardState, currentPlayer);
+    const endgameMessage = document.getElementById('endgame-message');
+    const endgamePopup = document.getElementById('endgame-popup');
+    const closeCheckMessageButton = document.getElementById('close-check-message');
+    const blackWritingHeading = document.getElementById('black-writing-heading');
+
     if (inCheck) {
         if (legalMoves.length === 0) {
-            alert(currentPlayer === 'white' ? 'Black wins by checkmate!' : 'White wins by checkmate!');
+            endgameMessage.textContent = currentPlayer === 'white' ? 'Black wins by checkmate!' : 'White wins by checkmate!';
+            endgamePopup.style.display = 'block';
         } else {
-            alert('Check!');
+            showCheckMessage(currentPlayer);
+            closeCheckMessageButton.style.display = 'block';
+            if (currentPlayer === 'white') {
+                blackWritingHeading.style.display = 'block';
+            } else {
+                blackWritingHeading.style.display = 'none';
+            }
         }
     } else {
         if (legalMoves.length === 0) {
-            alert('Stalemate!');
+            endgameMessage.textContent = 'Stalemate!';
+            endgamePopup.style.display = 'block';
         }
+        closeCheckMessageButton.style.display = 'none';
+        blackWritingHeading.style.display = 'none';
     }
+}
+
+function showCheckMessage(player) {
+    const checkMessageModal = document.getElementById('check-message-modal');
+    const checkMessageText = document.getElementById('check-message-text');
+    if (player === 'white') {
+        checkMessageText.textContent = "Looks like your king is in a bit of a predicament there, muhaha.";
+    } else {
+        checkMessageText.textContent = "Black’s king is in check. Your next move can decide the game, think strategically.";
+    }
+    checkMessageModal.style.display = 'block';
+}
+
+function closeCheckMessage() {
+    document.getElementById('check-message-modal').style.display = 'none';
+    document.getElementById('close-check-message').style.display = 'none';
+    document.getElementById('black-writing-heading').style.display = 'none';
 }
 
 function togglePlayer() {

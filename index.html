@@ -18,7 +18,21 @@
         </div>
     </div>
     <div class="turn-indicator" id="white-turn">White's turn</div>
+
+    <div id="endgame-popup" class="popup">
+        <div id="endgame-message"></div>
+        <button id="play-again-button">Play Again</button>
+    </div>
     
+    <!-- Custom Check Message Modal -->
+    <div class="check-message-heading" id="black-writing-heading" style="display: none;">Black is writing...</div>
+    <div id="check-message-modal" class="check-message-modal">
+        <div class="check-message-content">
+            <span id="check-message-text"></span>
+        </div>
+    </div>
+    <button id="close-check-message" style="display: none;">Press here, to continue</button>
+
     <script src="script.js"></script>
 </body>
 </html>
