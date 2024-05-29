@@ -1,10 +1,27 @@
 body {
     display: flex;
+    flex-direction: column;
     justify-content: center;
     align-items: center;
     height: 100vh;
     margin: 0;
     background-color: #95388b;
+    font-family: 'Times New Roman', Times, serif;
+    position: relative;
+}
+
+.container {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-around;
+    width: 80%;
+    position: relative;
+}
+
+.info img {
+    max-width: 300px;
+    height: auto;
 }
 
 #board {
@@ -13,6 +30,7 @@ body {
     grid-template-rows: repeat(8, 50px);
     gap: 0;
     border: 2px solid black;
+    margin-left: 20px;
 }
 
 .square {
@@ -29,9 +47,40 @@ body {
 }
 
 .dark {
-    background-color: #00000044;
+    background-color: #c493c0;
 }
 
 .piece {
     cursor: grab;
+}
+
+.turn-indicator {
+    width: 150px;
+    text-align: center;
+    padding: 10px 0;
+    font-size: 1.2rem;
+    border-radius: 10px;
+    position: absolute;
+}
+
+#black-turn {
+    background-color: #000;
+    color: #fff;
+    top: 10px;
+    display: none;
+    left: 50%;
+    transform: translateX(-50%);
+    margin-top: 130px; /* Adjust this value to move closer to the board */
+
+}
+
+#white-turn {
+    background-color: #fff;
+    color: #000;
+    bottom: 10px;
+    display: none;
+    left: 50%;
+    transform: translateX(-50%);
+    margin-bottom: 130px; 
+
 }

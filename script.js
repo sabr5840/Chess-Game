@@ -93,18 +93,15 @@ function updateBoardView(boardState) {
     }
 }
 
-
 function displayCurrentPlayer() {
-    const currentPlayerElement = document.getElementById('current-player');
-    if (!currentPlayerElement) {
-        const element = document.createElement('div');
-        element.id = 'current-player';
-        element.style.textAlign = 'center';
-        element.style.margin = '10px';
-        element.textContent = `Current player: ${window.currentPlayer}`;
-        document.body.prepend(element);
+    const blackTurnElement = document.getElementById('black-turn');
+    const whiteTurnElement = document.getElementById('white-turn');
+    if (window.currentPlayer === 'white') {
+        blackTurnElement.style.display = 'none';
+        whiteTurnElement.style.display = 'block';
     } else {
-        currentPlayerElement.textContent = `Current player: ${window.currentPlayer}`;
+        blackTurnElement.style.display = 'block';
+        whiteTurnElement.style.display = 'none';
     }
 }
 
