@@ -1,4 +1,3 @@
-
 document.addEventListener("DOMContentLoaded", function() {
     const boardElement = document.getElementById('board');
     const board = createBoard();
@@ -108,6 +107,11 @@ function updateBoardView(boardState) {
             }
         }
     }
+
+    // Remove any existing highlights for king in check
+    document.querySelectorAll('.king-in-check').forEach(square => {
+        square.classList.remove('king-in-check');
+    });
 }
 
 function displayCurrentPlayer() {
@@ -185,6 +189,65 @@ function showInvalidMoveMessage() {
     alert("Invalid move! Please try again.");
 }
 
+function movePiece(startRow, startCol, endRow, endCol) {
+    const piece = window.boardState[startRow][startCol];
+    const capturedPiece = window.boardState[endRow][endCol];
+
+    if (capturedPiece) {
+        document.getElementById(`${endRow}-${endCol}`).innerHTML = '';
+    }
+
+    // Handle castling
+    if ((piece === '♔' || piece === '♚') && Math.abs(startCol - endCol) === 2) {
+        const isKingSide = endCol > startCol;
+        const rookStartCol = isKingSide ? 7 : 0;
+        const rookEndCol = isKingSide ? 5 : 3;
+        const rookPiece = window.boardState[startRow][rookStartCol];
+
+        window.boardState[startRow][rookStartCol] = null;
+        window.boardState[startRow][rookEndCol] = rookPiece;
+
+        const rookElement = document.createElement('div');
+        rookElement.textContent = rookPiece;
+        rookElement.className = 'piece';
+        rookElement.draggable = true;
+        rookElement.addEventListener('dragstart', handleDragStart);
+        rookElement.addEventListener('dragend', handleDragEnd);
+        document.getElementById(`${startRow}-${rookEndCol}`).appendChild(rookElement);
+        document.getElementById(`${startRow}-${rookStartCol}`).innerHTML = '';
+    }
+
+    window.boardState[startRow][startCol] = null;
+    window.boardState[endRow][endCol] = piece;
+
+    // Handle promotion
+    if (piece === '♙' && endRow === 0) {
+        promotePawn(endRow, endCol, 'white');
+    } else if (piece === '♟' && endRow === 7) {
+        promotePawn(endRow, endCol, 'black');
+    }
+
+    // Update castling rights
+    if (piece === '♔') {
+        window.castlingRights.white.kingSide = false;
+        window.castlingRights.white.queenSide = false;
+    } else if (piece === '♚') {
+        window.castlingRights.black.kingSide = false;
+        window.castlingRights.black.queenSide = false;
+    } else if (piece === '♖' && startCol === 0) {
+        window.castlingRights.white.queenSide = false;
+    } else if (piece === '♖' && startCol === 7) {
+        window.castlingRights.white.kingSide = false;
+    } else if (piece === '♜' && startCol === 0) {
+        window.castlingRights.black.queenSide = false;
+    } else if (piece === '♜' && startCol === 7) {
+        window.castlingRights.black.kingSide = false;
+    }
+
+    updateKingPosition(endRow, endCol, piece);
+    updateBoardView(window.boardState);
+}
+
 function updateKingPosition(row, col, piece) {
     if (piece === '♔') {
         window.kingPositions.white = [row, col];
@@ -216,27 +279,48 @@ function isValidMove(startRow, startCol, endRow, endCol, ignoreCheck = false) {
     const target = window.boardState[endRow][endCol];
     const currentPlayer = getPieceColor(piece);
 
+    // Validating different piece moves
+    if (piece === '♙' || piece === '♟') {
+        if (!isValidPawnMove(startRow, startCol, endRow, endCol, piece, target)) {
+            return false;
+        }
+    } else if (piece === '♘' || piece === '♞') {
+        if (!isValidKnightMove(startRow, startCol, endRow, endCol, target)) {
+            return false;
+        }
+    } else if (piece === '♗' || piece === '♝') {
+        if (!isValidBishopMove(startRow, startCol, endRow, endCol, target)) {
+            return false;
+        }
+    } else if (piece === '♖' || piece === '♜') {
+        if (!isValidRookMove(startRow, startCol, endRow, endCol, target)) {
+            return false;
+        }
+    } else if (piece === '♕' || piece === '♛') {
+        if (!isValidQueenMove(startRow, startCol, endRow, endCol, target)) {
+            return false;
+        }
+    } else if (piece === '♔' || piece === '♚') {
+        if (!isValidKingMove(startRow, startCol, endRow, endCol, target)) {
+            return false;
+        }
+    } else {
+        return false;
+    }
+
     if (!ignoreCheck) {
         // Simulate the move and check if it puts the king in check
         const tempBoard = JSON.parse(JSON.stringify(window.boardState));
         tempBoard[endRow][endCol] = tempBoard[startRow][startCol];
         tempBoard[startRow][startCol] = null;
-        const kingPosition = window.kingPositions[currentPlayer];
+        const kingPosition = window.kingPositions[currentPlayer === 'white' ? 'white' : 'black'];
         if (isKingInCheck(tempBoard, kingPosition, currentPlayer)) {
             console.log("Move would put king in check");
             return false;
         }
     }
 
-    // Validating different piece moves
-    if (piece === '♙' || piece === '♟') return isValidPawnMove(startRow, startCol, endRow, endCol, piece, target);
-    if (piece === '♘' || piece === '♞') return isValidKnightMove(startRow, startCol, endRow, endCol, target);
-    if (piece === '♗' || piece === '♝') return isValidBishopMove(startRow, startCol, endRow, endCol, target);
-    if (piece === '♖' || piece === '♜') return isValidRookMove(startRow, startCol, endRow, endCol, target);
-    if (piece === '♕' || piece === '♛') return isValidQueenMove(startRow, startCol, endRow, endCol, target);
-    if (piece === '♔' || piece === '♚') return isValidKingMove(startRow, startCol, endRow, endCol, target);
-
-    return false;
+    return true;
 }
 
 function isValidPawnMove(startRow, startCol, endRow, endCol, piece, target) {
@@ -301,83 +385,23 @@ function isValidKingMove(startRow, startCol, endRow, endCol, target) {
 }
 
 function canCastle(row, col, side) {
-    if (window.castlingRights[window.currentPlayer][side]) {
-        if (side === 'kingSide') {
-            return (
-                window.boardState[row][col + 1] === null &&
-                window.boardState[row][col + 2] === null &&
-                window.boardState[row][col + 3] === (window.currentPlayer === 'white' ? '♖' : '♜')
-            );
-        } else if (side === 'queenSide') {
-            return (
-                window.boardState[row][col - 1] === null &&
-                window.boardState[row][col - 2] === null &&
-                window.boardState[row][col - 3] === null &&
-                window.boardState[row][col - 4] === (window.currentPlayer === 'white' ? '♖' : '♜')
-            );
-        }
+    const rookCol = side === 'kingSide' ? 7 : 0;
+    const kingCol = 4;
+    const rookPiece = window.currentPlayer === 'white' ? '♖' : '♜';
+    const kingPiece = window.currentPlayer === 'white' ? '♔' : '♚';
+
+    if (window.castlingRights[window.currentPlayer][side] &&
+        window.boardState[row][kingCol] === kingPiece &&
+        window.boardState[row][rookCol] === rookPiece) {
+
+        const pathClear = isPathClear(row, kingCol, row, rookCol);
+        const noCheck = !isKingInCheck(window.boardState, [row, kingCol], window.currentPlayer) &&
+                        !isKingInCheck(window.boardState, [row, kingCol + (side === 'kingSide' ? 1 : -1)], window.currentPlayer) &&
+                        !isKingInCheck(window.boardState, [row, kingCol + (side === 'kingSide' ? 2 : -2)], window.currentPlayer);
+
+        return pathClear && noCheck;
     }
     return false;
-}
-
-function movePiece(startRow, startCol, endRow, endCol) {
-    const piece = window.boardState[startRow][startCol];
-    const capturedPiece = window.boardState[endRow][endCol];
-
-    if (capturedPiece) {
-        document.getElementById(`${endRow}-${endCol}`).innerHTML = '';
-    }
-
-    // Handle castling
-    if ((piece === '♔' || piece === '♚') && Math.abs(startCol - endCol) === 2) {
-        const isKingSide = endCol > startCol;
-        const rookStartCol = isKingSide ? 7 : 0;
-        const rookEndCol = isKingSide ? 5 : 3;
-        const rookPiece = window.boardState[startRow][rookStartCol];
-
-        window.boardState[startRow][rookStartCol] = null;
-        window.boardState[startRow][rookEndCol] = rookPiece;
-
-        const rookElement = document.createElement('div');
-        rookElement.textContent = rookPiece;
-        rookElement.className = 'piece';
-        rookElement.draggable = true;
-        rookElement.addEventListener('dragstart', handleDragStart);
-        rookElement.addEventListener('dragend', handleDragEnd);
-        document.getElementById(`${startRow}-${rookEndCol}`).appendChild(rookElement);
-        document.getElementById(`${startRow}-${rookStartCol}`).innerHTML = '';
-    }
-
-    window.boardState[startRow][startCol] = null;
-    window.boardState[endRow][endCol] = piece;
-
-
-    // Handle promotion
-    if (piece === '♙' && endRow === 0) {
-        promotePawn(endRow, endCol, 'white');
-    } else if (piece === '♟' && endRow === 7) {
-        promotePawn(endRow, endCol, 'black');
-    }
-
-    // Update castling rights
-    if (piece === '♔') {
-        window.castlingRights.white.kingSide = false;
-        window.castlingRights.white.queenSide = false;
-    } else if (piece === '♚') {
-        window.castlingRights.black.kingSide = false;
-        window.castlingRights.black.queenSide = false;
-    } else if (piece === '♖' && startCol === 0) {
-        window.castlingRights.white.queenSide = false;
-    } else if (piece === '♖' && startCol === 7) {
-        window.castlingRights.white.kingSide = false;
-    } else if (piece === '♜' && startCol === 0) {
-        window.castlingRights.black.queenSide = false;
-    } else if (piece === '♜' && startCol === 7) {
-        window.castlingRights.black.kingSide = false;
-    }
-
-    updateKingPosition(endRow, endCol, piece);
-    updateBoardView(window.boardState);
 }
 
 function isPathClear(startRow, startCol, endRow, endCol) {
@@ -405,13 +429,11 @@ function isKingInCheck(boardState, kingPosition, currentPlayer) {
             const piece = boardState[row][col];
             if (piece && getPieceColor(piece) === opponent) {
                 if (isValidMove(row, col, kingPosition[0], kingPosition[1], true)) {
-                    highlightKingInCheck(kingPosition);  // Highlight the king
                     return true;
                 }
             }
         }
     }
-    removeKingInCheckHighlight(kingPosition);  // Remove highlight if not in check
     return false;
 }
 
@@ -455,10 +477,13 @@ function getAllLegalMoves(boardState, currentPlayer) {
 
 function checkForCheckmateOrStalemate(currentPlayer) {
     const kingPosition = window.kingPositions[currentPlayer];
+    
+    // Fejlhåndtering for kongens position
     if (!kingPosition) {
         console.error("King position not found for player", currentPlayer);
         return;
     }
+
     console.log(`King position for ${currentPlayer}:`, kingPosition);
     const inCheck = isKingInCheck(window.boardState, kingPosition, currentPlayer);
     const legalMoves = getAllLegalMoves(window.boardState, currentPlayer);
@@ -468,11 +493,13 @@ function checkForCheckmateOrStalemate(currentPlayer) {
     const blackWritingHeading = document.getElementById('black-writing-heading');
 
     if (inCheck) {
+        highlightKingInCheck(kingPosition);  // Highlight the king
         if (legalMoves.length === 0) {
             endgameMessage.textContent = currentPlayer === 'white' ? 'Black wins by checkmate!' : 'White wins by checkmate!';
             endgamePopup.style.display = 'block';
         } else {
             showCheckMessage(currentPlayer);
+            // Logik for visning/skjul af skakmeddelelsesrelaterede elementer
             if (currentPlayer === 'white') {
                 closeCheckMessageButton.style.display = 'block';
                 blackWritingHeading.style.display = 'block';
@@ -482,6 +509,7 @@ function checkForCheckmateOrStalemate(currentPlayer) {
             }
         }
     } else {
+        removeKingInCheckHighlight(kingPosition);  // Remove highlight if not in check
         if (legalMoves.length === 0) {
             endgameMessage.textContent = 'Stalemate!';
             endgamePopup.style.display = 'block';

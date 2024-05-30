@@ -177,11 +177,12 @@ body {
 }
 
 @keyframes blink {
-    0% { background-color: #c493c0; }
+    0% { background-color: inherit; }
     50% { background-color: #5b485a; }
-    100% { background-color: #c493c0; }
+    100% { background-color: inherit; }
 }
 
 .king-in-check {
     animation: blink 1s infinite;
+
 }
