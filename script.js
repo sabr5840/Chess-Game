@@ -1,3 +1,4 @@
+
 document.addEventListener("DOMContentLoaded", function() {
     const boardElement = document.getElementById('board');
     const board = createBoard();
@@ -8,6 +9,33 @@ document.addEventListener("DOMContentLoaded", function() {
 
     initializeGame();
 });
+
+function createBoard() {
+    const board = [];
+    const letters = 'ABCDEFGH';
+
+    for (let row = 0; row < 8; row++) {
+        for (let col = 0; col < 8; col++) {
+            const square = document.createElement('div');
+            square.className = 'square';
+            square.classList.add((row + col) % 2 === 0 ? 'light' : 'dark');
+            square.id = `${row}-${col}`;
+            if (col === 0) {
+                square.setAttribute('data-row', 'true');
+                square.setAttribute('data-row-number', 8 - row);
+            }
+            if (row === 7) {
+                square.setAttribute('data-col', 'true');
+                square.setAttribute('data-col-letter', letters[col]);
+            }
+            square.addEventListener('dragover', handleDragOver);
+            square.addEventListener('drop', handleDrop);
+            board.push(square);
+        }
+    }
+
+    return board;
+}
 
 function initializeGame() {
     window.boardState = [
@@ -43,22 +71,6 @@ function resetGame() {
     endgamePopup.style.display = 'none';
     initializeGame();
     updateBoardView(window.boardState);
-}
-
-function createBoard() {
-    const board = [];
-    for (let row = 0; row < 8; row++) {
-        for (let col = 0; col < 8; col++) {
-            const square = document.createElement('div');
-            square.className = 'square';
-            square.classList.add((row + col) % 2 === 0 ? 'light' : 'dark');
-            square.id = `${row}-${col}`;
-            square.addEventListener('dragover', handleDragOver);
-            square.addEventListener('drop', handleDrop);
-            board.push(square);
-        }
-    }
-    return board;
 }
 
 function initializeBoard(boardState) {
@@ -173,71 +185,12 @@ function showInvalidMoveMessage() {
     alert("Invalid move! Please try again.");
 }
 
-function movePiece(startRow, startCol, endRow, endCol) {
-    const piece = window.boardState[startRow][startCol];
-    const capturedPiece = window.boardState[endRow][endCol];
-    
-    // Log the pieces involved
-    console.log(`Moving piece ${piece} from ${startRow}-${startCol} to ${endRow}-${endCol}`);
-    if (capturedPiece) {
-        console.log(`Captured piece: ${capturedPiece}`);
-        document.getElementById(`${endRow}-${endCol}`).innerHTML = '';
-    }
-
-    // Handle castling
-    if (piece === '♔' || piece === '♚') {
-        if (Math.abs(startCol - endCol) === 2) {
-            const isKingSide = endCol > startCol;
-            const rookStartCol = isKingSide ? 7 : 0;
-            const rookEndCol = isKingSide ? 5 : 3;
-            const rookPiece = window.boardState[startRow][rookStartCol];
-            
-            // Move the rook
-            window.boardState[startRow][rookStartCol] = null;
-            window.boardState[startRow][rookEndCol] = rookPiece;
-        }
-    }
-
-    window.boardState[startRow][startCol] = null;
-    window.boardState[endRow][endCol] = piece;
-
-    // Handle en passant capture
-    if ((piece === '♙' || piece === '♟') && startCol !== endCol && window.boardState[endRow][endCol] === null) {
-        window.boardState[startRow][endCol] = null;
-    }
-
-    // Handle promotion
-    if (piece === '♙' && endRow === 0) {
-        promotePawn(endRow, endCol, 'white');
-    } else if (piece === '♟' && endRow === 7) {
-        promotePawn(endRow, endCol, 'black');
-    }
-
-    // Update castling rights
+function updateKingPosition(row, col, piece) {
     if (piece === '♔') {
-        window.castlingRights.white.kingSide = false;
-        window.castlingRights.white.queenSide = false;
+        window.kingPositions.white = [row, col];
     } else if (piece === '♚') {
-        window.castlingRights.black.kingSide = false;
-        window.castlingRights.black.queenSide = false;
-    } else if (piece === '♖' && startCol === 0) {
-        window.castlingRights.white.queenSide = false;
-    } else if (piece === '♖' && startCol === 7) {
-        window.castlingRights.white.kingSide = false;
-    } else if (piece === '♜' && startCol === 0) {
-        window.castlingRights.black.queenSide = false;
-    } else if (piece === '♜' && startCol === 7) {
-        window.castlingRights.black.kingSide = false;
+        window.kingPositions.black = [row, col];
     }
-
-    // Update king position if a king is moved
-    if (piece === '♔') {
-        window.kingPositions.white = [endRow, endCol];
-    } else if (piece === '♚') {
-        window.kingPositions.black = [endRow, endCol];
-    }
-
-    console.log("Board after move:", window.boardState);
 }
 
 function promotePawn(row, col, color) {
@@ -303,7 +256,7 @@ function isValidPawnMove(startRow, startCol, endRow, endCol, piece, target) {
     if (Math.abs(startCol - endCol) === 1) {
         if (startRow + direction === endRow) {
             if (target !== null) return true;
-            if (window.enPassantTarget && window.enPassantTarget[0] === startRow && window.enPassantTarget[1] === endCol) {
+            if (window.enPassantTarget && window.enPassantTarget[0] === startRow + direction && window.enPassantTarget[1] === endCol) {
                 return true;
             }
         }
@@ -340,73 +293,91 @@ function isValidKingMove(startRow, startCol, endRow, endCol, target) {
 
     // Check for castling
     if (rowDiff === 0 && colDiff === 2) {
-        if (startCol < endCol) {
-            // King-side castling
-            return canCastle(startRow, startCol, 'king-side');
-        } else {
-            // Queen-side castling
-            return canCastle(startRow, startCol, 'queen-side');
-        }
+        const side = startCol < endCol ? 'kingSide' : 'queenSide';
+        return canCastle(startRow, startCol, side);
     }
 
     return rowDiff <= 1 && colDiff <= 1;
 }
 
-function canCastle(row, kingCol, side) {
-    console.log("Attempting to castle", side);
-
-    const isWhite = window.boardState[row][kingCol] === '♔';
-    const king = isWhite ? '♔' : '♚';
-    const rook = isWhite ? '♖' : '♜';
-    const opponent = isWhite ? 'black' : 'white';
-
-    if (side === 'king-side') {
-        const rookCol = 7;
-        if (window.boardState[row][rookCol] !== rook) {
-            console.log("No rook at the expected position for king-side castling.");
-            return false;
+function canCastle(row, col, side) {
+    if (window.castlingRights[window.currentPlayer][side]) {
+        if (side === 'kingSide') {
+            return (
+                window.boardState[row][col + 1] === null &&
+                window.boardState[row][col + 2] === null &&
+                window.boardState[row][col + 3] === (window.currentPlayer === 'white' ? '♖' : '♜')
+            );
+        } else if (side === 'queenSide') {
+            return (
+                window.boardState[row][col - 1] === null &&
+                window.boardState[row][col - 2] === null &&
+                window.boardState[row][col - 3] === null &&
+                window.boardState[row][col - 4] === (window.currentPlayer === 'white' ? '♖' : '♜')
+            );
         }
-        if (!isPathClear(row, kingCol, row, rookCol - 1)) {
-            console.log("Path is not clear for king-side castling.");
-            return false;
-        }
-        if (isKingInCheck(window.boardState, [row, kingCol], opponent) ||
-            isKingInCheck(window.boardState, [row, kingCol + 1], opponent) ||
-            isKingInCheck(window.boardState, [row, kingCol + 2], opponent)) {
-            console.log("King would be in check during king-side castling.");
-            return false;
-        }
+    }
+    return false;
+}
 
-        // Move the rook as well
-        window.boardState[row][rookCol] = null;
-        window.boardState[row][kingCol + 1] = rook;
+function movePiece(startRow, startCol, endRow, endCol) {
+    const piece = window.boardState[startRow][startCol];
+    const capturedPiece = window.boardState[endRow][endCol];
 
-        return true;
-    } else if (side === 'queen-side') {
-        const rookCol = 0;
-        if (window.boardState[row][rookCol] !== rook) {
-            console.log("No rook at the expected position for queen-side castling.");
-            return false;
-        }
-        if (!isPathClear(row, kingCol, row, rookCol + 1)) {
-            console.log("Path is not clear for queen-side castling.");
-            return false;
-        }
-        if (isKingInCheck(window.boardState, [row, kingCol], opponent) ||
-            isKingInCheck(window.boardState, [row, kingCol - 1], opponent) ||
-            isKingInCheck(window.boardState, [row, kingCol - 2], opponent)) {
-            console.log("King would be in check during queen-side castling.");
-            return false;
-        }
-
-        // Move the rook as well
-        window.boardState[row][rookCol] = null;
-        window.boardState[row][kingCol - 1] = rook;
-
-        return true;
+    if (capturedPiece) {
+        document.getElementById(`${endRow}-${endCol}`).innerHTML = '';
     }
 
-    return false;
+    // Handle castling
+    if ((piece === '♔' || piece === '♚') && Math.abs(startCol - endCol) === 2) {
+        const isKingSide = endCol > startCol;
+        const rookStartCol = isKingSide ? 7 : 0;
+        const rookEndCol = isKingSide ? 5 : 3;
+        const rookPiece = window.boardState[startRow][rookStartCol];
+
+        window.boardState[startRow][rookStartCol] = null;
+        window.boardState[startRow][rookEndCol] = rookPiece;
+
+        const rookElement = document.createElement('div');
+        rookElement.textContent = rookPiece;
+        rookElement.className = 'piece';
+        rookElement.draggable = true;
+        rookElement.addEventListener('dragstart', handleDragStart);
+        rookElement.addEventListener('dragend', handleDragEnd);
+        document.getElementById(`${startRow}-${rookEndCol}`).appendChild(rookElement);
+        document.getElementById(`${startRow}-${rookStartCol}`).innerHTML = '';
+    }
+
+    window.boardState[startRow][startCol] = null;
+    window.boardState[endRow][endCol] = piece;
+
+
+    // Handle promotion
+    if (piece === '♙' && endRow === 0) {
+        promotePawn(endRow, endCol, 'white');
+    } else if (piece === '♟' && endRow === 7) {
+        promotePawn(endRow, endCol, 'black');
+    }
+
+    // Update castling rights
+    if (piece === '♔') {
+        window.castlingRights.white.kingSide = false;
+        window.castlingRights.white.queenSide = false;
+    } else if (piece === '♚') {
+        window.castlingRights.black.kingSide = false;
+        window.castlingRights.black.queenSide = false;
+    } else if (piece === '♖' && startCol === 0) {
+        window.castlingRights.white.queenSide = false;
+    } else if (piece === '♖' && startCol === 7) {
+        window.castlingRights.white.kingSide = false;
+    } else if (piece === '♜' && startCol === 0) {
+        window.castlingRights.black.queenSide = false;
+    } else if (piece === '♜' && startCol === 7) {
+        window.castlingRights.black.kingSide = false;
+    }
+
+    updateKingPosition(endRow, endCol, piece);
+    updateBoardView(window.boardState);
 }
 
 function isPathClear(startRow, startCol, endRow, endCol) {
@@ -416,11 +387,8 @@ function isPathClear(startRow, startCol, endRow, endCol) {
     let row = startRow + rowStep;
     let col = startCol + colStep;
 
-    console.log(`Checking path from (${startRow}, ${startCol}) to (${endRow}, ${endCol})`);
     while (row !== endRow || col !== endCol) {
-        console.log(`Checking square (${row}, ${col})`);
         if (window.boardState[row][col] !== null) {
-            console.log(`Path blocked at (${row}, ${col}) by ${window.boardState[row][col]}`);
             return false;
         }
         row += rowStep;
@@ -437,12 +405,26 @@ function isKingInCheck(boardState, kingPosition, currentPlayer) {
             const piece = boardState[row][col];
             if (piece && getPieceColor(piece) === opponent) {
                 if (isValidMove(row, col, kingPosition[0], kingPosition[1], true)) {
+                    highlightKingInCheck(kingPosition);  // Highlight the king
                     return true;
                 }
             }
         }
     }
+    removeKingInCheckHighlight(kingPosition);  // Remove highlight if not in check
     return false;
+}
+
+function highlightKingInCheck(kingPosition) {
+    const [row, col] = kingPosition;
+    const kingSquare = document.getElementById(`${row}-${col}`);
+    kingSquare.classList.add('king-in-check');
+}
+
+function removeKingInCheckHighlight(kingPosition) {
+    const [row, col] = kingPosition;
+    const kingSquare = document.getElementById(`${row}-${col}`);
+    kingSquare.classList.remove('king-in-check');
 }
 
 function getAllLegalMoves(boardState, currentPlayer) {
@@ -491,10 +473,11 @@ function checkForCheckmateOrStalemate(currentPlayer) {
             endgamePopup.style.display = 'block';
         } else {
             showCheckMessage(currentPlayer);
-            closeCheckMessageButton.style.display = 'block';
             if (currentPlayer === 'white') {
+                closeCheckMessageButton.style.display = 'block';
                 blackWritingHeading.style.display = 'block';
             } else {
+                closeCheckMessageButton.style.display = 'none';
                 blackWritingHeading.style.display = 'none';
             }
         }
@@ -514,9 +497,9 @@ function showCheckMessage(player) {
     if (player === 'white') {
         checkMessageText.textContent = "Looks like your king is in a bit of a predicament there, muhaha.";
     } else {
-        checkMessageText.textContent = "Black’s king is in check. Your next move can decide the game, think strategically.";
+        checkMessageText.textContent = ""; // Empty string to ensure no message for black's check
     }
-    checkMessageModal.style.display = 'block';
+    checkMessageModal.style.display = player === 'white' ? 'block' : 'none';
 }
 
 function closeCheckMessage() {
